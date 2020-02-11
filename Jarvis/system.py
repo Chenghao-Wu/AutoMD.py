@@ -89,6 +89,8 @@ class System(object):
             path.mkdir(parents=True, exist_ok=True)
             simulation_inputs = path.joinpath("simulations/simulation_inputs")
             simulation_inputs.mkdir(parents=True, exist_ok=True)
+            submission_scripts = path.joinpath("simulations/submission_scripts")
+            submission_scripts.mkdir(parents=True, exist_ok=True)
 
         
     
