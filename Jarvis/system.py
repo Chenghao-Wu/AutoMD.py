@@ -12,10 +12,17 @@ import subprocess
 import time
 import shutil
 
+import subprocess
+
+
+from .logger import setup_logger
+logger = setup_logger()
+
 class System(object):
     def __init__(self,ProjectName=None,Year=None,Usic=None):
         self.ProjectName    =   ProjectName
         self.Year           =   str(Year)
+        self.start_date     =   '-S 2020-01-01'
         self.Usic           =   Usic
         self.MadeFolder     =   False
     
@@ -50,7 +57,7 @@ class System(object):
             elif type(Filename)==str:
                 self.copy_SimulationInputs(InputFolder=self.InputFolder,Filename=Filename)
             else:
-                print("ERROR: type of Filename is not correct")
+                logger.error(' '.join(["type of Filename is not correct"]))
         elif Automated:
             #self.copy_SimulationInputs(InputFolder=InputFolder,PhaseName=PhaseName)
             pass
@@ -59,7 +66,7 @@ class System(object):
         SystemPath=self.get_SystemPath
         cp_from=InputFolder+"/"+Filename
         if not os.path.isfile(cp_from):
-            print("  ERROR : input file: "+cp_from+" does not exist")
+            logger.error(' '.join(["input file: "+cp_from+" does not exist"]))
             sys.exit()
         cp_to=SystemPath+"/simulations/simulation_inputs/"+Filename
         shutil.copy2(cp_from,cp_to)
@@ -74,7 +81,7 @@ class System(object):
             if response == "y" or "yes":
                 proc = subprocess.Popen(['/bin/bash'], shell=True,stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 stdout = proc.communicate(("rm -r "+ SystemPath).encode())
-                print("removing "+SystemPath)
+                logger.info(' '.join(["removing "+SystemPath]))
                 time.sleep(3)
                 path.mkdir(parents=True, exist_ok=True)
                 simulation_inputs = path.joinpath("simulations/simulation_inputs")
@@ -83,7 +90,7 @@ class System(object):
                 submission_scripts.mkdir(parents=True, exist_ok=True)
 
             elif response == "n" or "no":
-                print("  EXIT : "+SystemPath+" has already existed")
+                logger.info(' '.join(["EXIT : "+SystemPath+" has already existed"]))
                 sys.exit()
         else:
             path.mkdir(parents=True, exist_ok=True)
@@ -93,4 +100,19 @@ class System(object):
             submission_scripts.mkdir(parents=True, exist_ok=True)
 
         
-    
+    def detect_JobState(self,Phase):
+        JobName=Phase.JobId
+        #JobName='equ_2_4_PI_CG_192'
+        #print(JobName)
+        process = subprocess.Popen(["sacct "+self.start_date+" --name "+JobName+" --format State"], stdout=subprocess.PIPE,encoding='utf-8',shell=True)
+        status=process.communicate()[0].split()[2]
+        
+        if status=="RUNNING":
+            return 0
+        elif status=="COMPLETED":
+            return 1
+        elif status=="PENDING":
+            return 2
+        elif status=="FAILED":
+            logger.error(' '.join(["Job ID ",JobName," FAILED!!!"]))
+            sys.exit()

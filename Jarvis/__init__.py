@@ -13,3 +13,7 @@ from .simulation_phase import *
 from .system import *
 from .cluster import *
 from .simulator import *
+from .analysiscoder import *
+from .analysis import *
+from .plugin.moltemplate import *
+from .plugin.thermalconductivity import *

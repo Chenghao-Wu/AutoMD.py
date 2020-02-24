@@ -1,0 +1,125 @@
+
+# ----------------- Init Section -----------------
+units real
+atom_style full
+bond_style hybrid harmonic
+angle_style hybrid harmonic
+dihedral_style hybrid opls
+
+pair_style lj/cut/coul/cut 10.0 10.0
+#pair_style lj/cut/coul/long 10.0 10.0
+#kspace_style pppm 0.0001 
+
+pair_modify mix geometric
+special_bonds lj/coul 0.0 0.0 0.5
+
+# ----------------- Atom Definition Section -----------------
+read_data ./simulation_inputs/input_${trial}.data
+
+# ----------------- Settings Section -----------------
+include "./simulation_inputs/system.in.settings"
+
+# ----------------- Charges Section -----------------
+include "./simulation_inputs/system.in.charges"
+
+
+# ----------------------------------
+## Group IDs
+# ----------------------------------
+
+
+# ----------------------------------
+## Energy minimization
+# ----------------------------------
+minimize 1.0e-5 1.0e-7 1000 10000
+
+# ----------------------------------
+## Neigh_list Calc Frequency
+# ----------------------------------
+neigh_modify delay 0 every 1 check yes
+
+##----------------------------
+## DUMP
+# ----------------------------------
+dump 1 all custom 1000 ./generation/trajectory/trajectory_${usic}_${trial}.gen.custom type x y z ix iy iz
+dump_modify 1 first no sort id
+
+# ----------------------------------
+## FIX
+# ----------------------------------
+fix 1 all momentum 1000 linear 1 1 1 angular
+
+# ----------------------------------
+## START WITH VERY HIGH TEMPERATURE
+# ----------------------------------
+variable T equal ${Temp}/1000.0
+
+# ----------------------------------
+## THERMO_STYLE
+# ----------------------------------
+thermo_style custom step temp press pe ke etotal ebond eangle epair lx ly lz xlo xhi ylo yhi zlo zhi vol density dt time cpu tpcpu spcpu cpuremain
+
+# ----------------------------------
+## RUN_STYLE
+# ----------------------------------
+run_style verlet
+
+# ----------------------------------
+## VELOCITY
+# ----------------------------------
+velocity all create ${T} ${vseed} mom yes rot yes dist gaussian
+
+# ----------------------------------
+## Saving Frequency
+# ----------------------------------
+variable ts_save equal floor(${steps_gen}*0.02)
+dump_modify 1 every ${ts_save}
+
+#fix 2 all nvt temp ${T} ${T} 100.0
+
+# ----------------------------------
+## Pre-RUN with high pressure
+# ----------------------------------
+fix 2 all npt temp ${T} ${T} 100.0 iso 100.0 100.0 1000.0
+timestep 0.5
+thermo ${ts_save}
+run 100000
+
+fix 2 all npt temp ${T} ${T} 100.0 iso 100.0 50.0 1000.0
+timestep 0.5
+thermo ${ts_save}
+run 100000
+
+fix 2 all npt temp ${T} ${T} 100.0 iso 50.0 10.0 1000.0
+timestep 0.5
+thermo ${ts_save}
+run 100000
+
+fix 2 all npt temp ${T} ${T} 100.0 iso 10.0 1.0 1000.0
+timestep 0.5
+thermo ${ts_save}
+run 100000
+# ----------------------------------
+
+fix 2 all npt temp ${T} ${T} 100.0 iso 1.0 1.0 1000.0
+timestep 1.0
+thermo ${ts_save}
+run 100000
+
+
+#fix 2 all npt temp ${T} ${T} 100.0 iso 1.0 1.0 1000.0
+
+
+# ----------------------------------
+## GENERATION RUN
+# ----------------------------------
+timestep ${ts}
+thermo ${ts_save}
+run ${steps_gen}
+# ----------------------------------
+
+# ----------------------------------
+## GENERATION RESTART
+# ----------------------------------
+write_restart ./generation/restart/restart_${usic}_${trial}.gen.restart
+

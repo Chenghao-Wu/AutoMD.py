@@ -1,0 +1,143 @@
+
+# ----------------------------------
+## READ_RESTART
+# ----------------------------------
+read_restart ${read_res}
+
+# ----------------- Init Section -----------------
+#units real
+#atom_style full
+bond_style hybrid harmonic
+angle_style hybrid harmonic
+dihedral_style hybrid opls
+
+pair_style lj/cut/coul/cut 10.0 10.0
+#pair_style lj/cut/coul/long 10.0 10.0
+#kspace_style pppm 0.0001
+
+pair_modify mix geometric
+special_bonds lj/coul 0.0 0.0 0.5
+
+# ----------------- Settings Section -----------------
+include "./simulation_inputs/system.in.settings"
+
+# ----------------- Charges Section -----------------
+include "./simulation_inputs/system.in.charges"
+
+
+if "${run_phase} == 1" then "reset_timestep 0"
+
+# ----------------------------------
+## Neigh_list Calc Frequency
+# ----------------------------------
+neigh_modify delay 0 every 1 check yes
+
+# ----------------------------------
+## Saving Frequency (50 frames)
+# ----------------------------------
+variable ts_save equal floor(${steps_equ}*0.02)
+
+# ----------------------------------
+## DUMP
+# ----------------------------------
+dump 1 all custom ${ts_save} ./equilibration_nemd/trajectory/trajectory_${usic}_${trial}.equ.custom type x y z ix iy iz
+dump_modify 1 first no sort id
+
+# ----------------------------------
+## THERMO_STYLE
+# ----------------------------------
+thermo_style custom step temp press pe ke etotal ebond eangle epair lx ly lz xlo xhi ylo yhi zlo zhi vol density dt time cpu tpcpu spcpu cpuremain
+
+# ----------------------------------
+## CHECKPOINT
+# ----------------------------------
+if "${set_CheckPoint} == 1" then "restart ${restartf} ./equilibration_nemd/restart/restart_${usic}_${trial}.equ.restart"
+
+# ----------------------------------
+## FIX
+# ----------------------------------
+
+variable T equal ${Temp}/1000.0
+
+# ----------------------------------
+## NEMD Heat Flux
+# ----------------------------------
+fix 1 all momentum 1000 linear 1 1 1 angular
+
+
+
+compute zmin all reduce min z
+compute zmax all reduce max z
+
+thermo_style  custom step temp vol etotal c_zmin c_zmax
+run 0
+
+
+variable Zmin equal c_zmin
+variable Zmax equal c_zmax
+
+variable Zmid equal (${Zmin}+${Zmax})/2
+
+
+
+
+compute   ke1 all ke/atom
+variable  tempt1 atom c_ke1*2/3/0.00198720
+compute   layers1 all chunk/atom bin/1d z lower 0.2 nchunk every units box
+fix       2 all ave/chunk 1 20000 20000 layers1 v_tempt1  density/mass file ./equilibration_nemd/screen/temp_${phase}.profile
+
+compute   layers2 all chunk/atom bin/1d z lower 0.5 nchunk every units box
+fix       3 all ave/chunk 1 20000 20000 layers2 v_tempt1  density/mass file ./equilibration_nemd/screen/temp_${phase}_2.profile
+
+
+variable dz1 equal ${Zmin}+${HS_size}
+
+variable dz2 equal ${Zmax}-${HS_size}
+
+variable h1 equal ${Zmid}-${HS_size}
+variable h2 equal ${Zmid}+${HS_size}
+
+variable HiT equal ${T}+${delta_T}
+variable LoT equal ${T}-${delta_T}
+
+fix 4 all nve
+
+fix hot_rescale  all temp/rescale 1 ${HiT} ${HiT} 0.001 1.0
+fix cold_rescale1 all temp/rescale 1 ${LoT} ${LoT} 0.001 1.0
+fix cold_rescale2 all temp/rescale 1 ${LoT} ${LoT} 0.001 1.0
+
+region hot block INF INF INF INF ${h1} ${h2} units box
+region cold1 block INF INF INF INF ${Zmin} ${dz1} units box
+region cold2 block INF INF INF INF ${dz2} ${Zmax} units box
+
+compute hot_temp all temp/region hot
+compute cold_temp1 all temp/region cold1
+compute cold_temp2 all temp/region cold2
+
+
+fix_modify hot_rescale temp hot_temp
+fix_modify cold_rescale1 temp cold_temp1
+fix_modify cold_rescale2 temp cold_temp2
+
+
+fix 5 all ave/time 1 100 100 f_hot_rescale f_cold_rescale1 f_cold_rescale2 file ./equilibration_nemd/screen/flux_${phase}.out
+
+# ----------------------------------
+## RUN_STYLE
+# ----------------------------------
+run_style verlet
+
+
+# ----------------------------------
+## equilibration_nemd RUN
+# ----------------------------------
+timestep ${ts}
+thermo ${ts_save}
+run ${steps_equ}
+# ----------------------------------
+
+# ----------------------------------
+## WRITE_RESTART
+# ----------------------------------
+write_restart ${write_res}
+

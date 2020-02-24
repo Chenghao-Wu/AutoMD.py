@@ -38,11 +38,9 @@ class SimulationPhase(object):
     def define(self,VarName,Var=None):
         self.Vars[VarName]=Var
 
-
     def create(self,Cluster=None,Simulator=None):
         self.create_Folder()
         self.create_SubmissionFile(Cluster,Simulator)
-
 
     def create_Folder(self):
         if self.System.MadeFolder:
@@ -120,7 +118,6 @@ class SimulationPhase(object):
         SubmissionScript.write("else"+"\n")
         SubmissionScript.write("    continue"+"\n")
         SubmissionScript.write("fi"+"\n")
-
 
     def sub(self,Bool,dependence=None):
         '''

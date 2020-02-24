@@ -1,0 +1,134 @@
+
+package gpu 2 neigh yes
+
+# ----------------------------------
+## READ_RESTART
+# ----------------------------------
+read_restart ./equilibration/restart/restart_${usic}_${trial}_${namestring}_T${Temp}.equ.restart
+
+# ----------------- Init Section -----------------
+#units real
+#atom_style full
+bond_style hybrid harmonic
+angle_style hybrid harmonic
+dihedral_style hybrid opls
+improper_style hybrid harmonic
+
+pair_style lj/cut/coul/long 10.0 10.0
+kspace_style pppm 0.0001
+
+pair_modify mix geometric
+special_bonds lj/coul 0.0 0.0 0.5
+
+# ----------------- Settings Section -----------------
+include "./lammps_inputs/generation/system.in.settings"
+
+# ----------------- Charges Section -----------------
+include "./lammps_inputs/generation/system.in.charges"    
+
+reset_timestep 0
+
+# ----------------------------------
+## Neigh_list Calc Frequency
+# ----------------------------------
+neigh_modify delay 0 every 1 check yes
+
+# ----------------------------------
+## DUMP
+# ----------------------------------
+dump 1 all custom 1 ./production/trajectory/trajectory_${usic}_${trial}_${namestring}_T${Temp}.prd.custom type x y z ix iy iz
+dump_modify 1 first no sort id
+
+# ----------------------------------
+## FIX
+# ----------------------------------
+fix 1 all momentum 1000 linear 1 1 1 angular
+
+variable T equal ${Temp}/1000.0
+
+fix 2 all npt temp ${T} ${T} 100.0 iso 1.0 1.0 1000.0
+
+# ----------------------------------
+## THERMO_STYLE
+# ----------------------------------
+thermo_style custom step temp press pe ke etotal ebond eangle epair lx ly lz vol density dt time cpu tpcpu spcpu
+
+# ----------------------------------
+## RUN_STYLE
+# ----------------------------------
+run_style verlet
+
+# ----------------------------------
+## TIMESTEP
+# ----------------------------------
+timestep ${ts}
+
+# ----------------------------------------------------
+## EXPONENTIAL SCALING
+# ----------------------------------------------------
+variable EXP equal ${blocksize}-17
+variable s equal 0
+variable l loop ${n_prd_blocks}  ## NUMBER OF BLOCKS
+#variable l loop 5
+# ----------------------------------------------------
+label outerloop
+
+#variable ll equal ${l}+5
+#print "ll = ${ll}"
+#reset_timestep 0
+#variable s equal 0
+
+if "${divide_prd} > 1" then "reset_timestep 0"
+if "${divide_prd} > 1" then "variable s equal 0"
+
+  # ----------------------------
+  ## 1. "PSEUDO-LINEAR"
+  # ----------------------------
+  variable a loop 16
+  label linearloop
+    variable s equal $s+1
+    dump_modify 1 every $s append yes sort id
+    thermo $s
+    run 1
+    print "$s"
+  next a
+  jump SELF linearloop
+  # ----------------------------
+
+  # ----------------------------
+  ## 2. "BRIDGING"
+  # ----------------------------
+  variable m equal floor(${exp_base}^(16))-16
+  variable s equal $s+$m
+  dump_modify 1 append yes every $s sort id
+  thermo $s
+  run $m
+  print "$s"
+  # ----------------------------
+
+  # ----------------------------
+  ## 3. "EXPONENTIAL TIMESTEPS"
+  # ----------------------------
+  variable c loop ${EXP}
+  label innerloop
+    variable m equal floor(${exp_base}^($c+16))-floor(${exp_base}^($c+16-1))
+    variable s equal $s+$m
+    dump_modify 1 append yes every $s sort id
+    thermo $s
+    run $m
+    print "$s"
+  next c
+  jump SELF innerloop
+  # ----------------------------
+
+if "${set_CheckPoint} == 1" then "write_restart ./production/restart/restart_${l}_${n_prd_blocks}_${usic}_${trial}_${namestring}_T${Temp}.prd.restart"
+
+next l
+jump SELF outerloop
+# ----------------------------------------------------
+
+# ----------------------------------
+## WRITE_RESTART
+# ----------------------------------
+write_restart ./production/restart/restart_${usic}_${trial}_${namestring}_T${Temp}.prd.restart
+
