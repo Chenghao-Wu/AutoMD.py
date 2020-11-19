@@ -19,7 +19,8 @@ class ThermalConductivity(object):
                         Flux=None,
                         PhaseName=None,
                         ProjectName=None,
-                        Usic=None):
+                        Usic=None,
+                        File=None):
         self.ProjectName=ProjectName
         self.Usic=Usic
         self.PhaseName=PhaseName
@@ -27,6 +28,7 @@ class ThermalConductivity(object):
         self.Flux=Flux
         self.num_Atom=self.read_NumAtoms()
         self.CrossArea=self.read_CrossArea()
+        self.File=File
 
     
     def read_TempGradient(self):
@@ -84,8 +86,8 @@ class ThermalConductivity(object):
         slope_Flux=self.fit_Linear(Flux[10:]["time"].values,(np.abs(Flux[10:]["f_hot_rescale"].values)+np.abs(Flux[10:]["f_cold_rescale1"].values)+np.abs(Flux[10:]["f_cold_rescale2"].values))/4)
         heatflux=slope_Flux[0]/self.CrossArea
 
-        slope_TG_1=self.fit_Linear(TG[10:50]['pos'].values,TG[10:50]['temp_gradient'].values)
-        slope_TG_2=self.fit_Linear(TG[-50:-10]['pos'].values,TG[-50:-10]['temp_gradient'].values)
+        slope_TG_1=self.fit_Linear(TG[20:60]['pos'].values,TG[20:60]['temp_gradient'].values)
+        slope_TG_2=self.fit_Linear(TG[-60:-20]['pos'].values,TG[-60:-20]['temp_gradient'].values)
         #print(TG[10:70]['pos'],TG[10:70]['temp_gradient'])
         slope_TG_avg=(np.abs(slope_TG_1[0])+np.abs(slope_TG_2[0]))/2
 
@@ -95,6 +97,9 @@ class ThermalConductivity(object):
 
 
         self.thermalconductivity=thermalconductivity
+
+        self.write_info(self.File)
+
 
     def read_NumAtoms(self):
         in_="../simulations/"+self.PhaseName+"/screen/"+self.PhaseName+"_"+self.ProjectName+"_"+self.Usic+".screen"
@@ -122,8 +127,9 @@ class ThermalConductivity(object):
                         CrossArea=edge**2
                         return CrossArea
 
-    def out_Info(self):
-        pass
+    def write_info(self,File):
+        with open(File, 'w', encoding='utf-8') as f:
+            f.write(str(self.thermalconductivity))
 
     def out_Plot(self):
         pass

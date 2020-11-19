@@ -50,11 +50,11 @@ class SimulationPhase(object):
             cluster_out =   self.PhasePath.joinpath("simulations/"+self.PhaseName+"/submission_files/cluster_out/")
             trajectory  =   self.PhasePath.joinpath("simulations/"+self.PhaseName+"/trajectory/")
             
-            log.mkdir(parents=True,exist_ok=True)
-            restart.mkdir(parents=True,exist_ok=True)
-            screen.mkdir(parents=True,exist_ok=True)
-            cluster_out.mkdir(parents=True,exist_ok=True)
-            trajectory.mkdir(parents=True,exist_ok=True)
+            log.mkdir(parents=True,exist_ok=False)
+            restart.mkdir(parents=True,exist_ok=False)
+            screen.mkdir(parents=True,exist_ok=False)
+            cluster_out.mkdir(parents=True,exist_ok=False)
+            trajectory.mkdir(parents=True,exist_ok=False)
         else:
             print("  ERROR : System Project Folders are not Created")
             sys.exit()
@@ -91,10 +91,12 @@ class SimulationPhase(object):
             VarStr=VarStr+" "+varii+" "+self.Vars[varii]
 
         ScreenPath="./"+self.PhaseName+"/screen"+"/"+self.PhaseName+"_"+self.System.ProjectName+"_"+self.System.Usic+".screen"
+        
+        LogPath="./"+self.PhaseName+"/log"+"/"+self.PhaseName+"_"+self.System.ProjectName+"_"+self.System.Usic+".log"
 
         Excute_str=Simulator.Excutable+" ./simulation_inputs/"+self.PhaseName+".inp"
 
-        SubmissionFile.write(Excute_str+" "+VarStr+" > "+ScreenPath)
+        SubmissionFile.write(Excute_str+" "+VarStr+" -log "+LogPath+" > "+ScreenPath)
 
         SubmissionFile.close()
     

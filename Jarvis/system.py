@@ -49,6 +49,9 @@ class System(object):
     def set_InputFolder(self,InputFolder):
         self.InputFolder=InputFolder
 
+    def set_MadeFolder(self,MadeFolder=False):
+        self.MadeFolder=MadeFolder
+
     def prepare_SimulationInputs(self,Filename=None,Automated=False):
         if not Automated:
             if type(Filename)==list:
@@ -77,8 +80,8 @@ class System(object):
         SystemPath=self.get_SystemPath
         path=Path(SystemPath)
         if path.exists():
-            response = input(SystemPath+" folder exist, delete and make new?(y/n) ")
-            if response == "y" or "yes":
+            response = input(SystemPath+" folder exist, delete and make new?(y/n)")
+            if response == "y" or response == "yes":
                 proc = subprocess.Popen(['/bin/bash'], shell=True,stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 stdout = proc.communicate(("rm -r "+ SystemPath).encode())
                 logger.info(' '.join(["removing "+SystemPath]))
@@ -88,9 +91,11 @@ class System(object):
                 simulation_inputs.mkdir(parents=True, exist_ok=True)
                 submission_scripts = path.joinpath("simulations/submission_scripts")
                 submission_scripts.mkdir(parents=True, exist_ok=True)
-
-            elif response == "n" or "no":
+            elif response == "n" or response == "no":
                 logger.info(' '.join(["EXIT : "+SystemPath+" has already existed"]))
+                sys.exit()
+            else:
+                logger.info(' '.join(["EXIT : Please Specify the right input value!"]))
                 sys.exit()
         else:
             path.mkdir(parents=True, exist_ok=True)

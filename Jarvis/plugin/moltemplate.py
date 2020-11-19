@@ -13,12 +13,16 @@ import numpy as np
 from ..system import logger
 
 class Moltemplate(object):
-    def __init__(self,system=None,create_Folder=False):
+    def __init__(self,system=None,create_Folder=False,forcefield=None):
         self.system=system
+        self.forcefield=forcefield
+
         self.path_cwd=self.system.get_SystemPath+"/simulations/simulation_inputs/moltemplate/"
         self.path_master=os.getcwd()+"/"
-        self.path_moltemplatesrc=self.path_master+"moltemplate/src/"
+        self.path_moltemplatesrc=self.path_master+"moltemplate/moltemplate/scripts/"
+        self.path_moltemplate=self.path_master+"moltemplate/moltemplate/"
         self.path_oplsaaprm=self.path_master+"moltemplate/oplsaa.prm"
+        self.path_gafflt=self.path_master+"moltemplate/gaff.lt"
         self.path_MonomerBank=self.path_master+"Monomer_bank/"
         self.path_sequenceBank=self.path_master+"sequence_bank/"
         self.path_scripts=self.path_master+"scripts/"
@@ -28,13 +32,77 @@ class Moltemplate(object):
         self.offset=4.0
         self.packingL_spacing=5.0
         self.moltemplateBoxSize=400.0 # OPTIMIZED: will change accord. to actual packing 
+        self.add_ion=False
 
         self.merSet=[]
         self.sequenceSet=[]
         self.sequenceName=[]
+        self.ions=[]
         self.sequenceNum=0
         self.DOP=1
         self.create_Folder(create_Folder)
+
+    def add_ions(self,ions):#ions: list
+        self.add_ion=True
+        for ionii in ions:
+            ionname=ionii
+            ionlt=ionii+'.lt'
+            self.ions.append([ionname,ionlt])
+
+
+    def make_LmpDataFilebyMoltemplate(self):
+        logger.info(' '.join(["\nlmpdata prepared by Moltemplate.\n"]))
+        logger.info(' '.join(["\nNumber of Molecules = ",str(len(self.sequenceSet))]))
+
+        # loop through all polymers and make corresponding polymer lt files
+        for moleii in range(len(self.sequenceSet)):
+            # check degrees of polymerization (DOP) of current polymer
+            if self.DOP>0:
+                if len(self.sequenceSet[moleii])==self.DOP:
+                    logger.warning(' '.join(["\nWarning: At molecule# ",str(moleii)," DOP=",str(len(self.sequenceSet[moleii])),
+                                            " != ",str(self.DOP),"\n"]))
+            else:
+                logger.error(' '.join(["\nWarning: At molecule#",str(moleii+1),",",
+                                        "DOP=",str(len(self.sequenceSet[moleii])),str(self.DOP)]))
+        # check monomer.lt's in the monomer bank
+
+            for indexii in range(len(self.sequenceSet[moleii])):
+                if self.check_monomerbank(self.sequenceSet[moleii][indexii]):
+                    source=Path(self.path_MonomerBank)/self.sequenceSet[moleii][indexii]
+                    self.copy_to_cwd(source)
+                else:
+                    logger.error(' '.join(["\nError: ","At monomer#" +str(indexii+1)+" ("+self.sequenceSet[moleii][indexii]+") ","of molecule#"+str(moleii+1) +": ",
+                                        "\nCan't find corresponding lt file in the monomer bank.\n\n",
+                                        "Automation terminated.\n\n"]))
+                    sys.exit()
+        
+            #make oplsaa.lt (requiring oplsaa_subset.prm)
+            #NOTE: the oplsaa.lt is shared by the current polymer and all its
+            #constituent monomers; to make it more general, this function should
+            #generate an unique oplsaa.lt file for each polymer and its own
+            #monomers. This feature is NOT supported in the current version
+
+            #self.make_oplsaalt(self.sequenceSet[moleii])
+            self.make_lt(self.sequenceSet[moleii])
+            
+            if self.DOP>1:
+                # make poly.lt file
+                self.make_polylt(moleii,self.sequenceName[moleii])
+
+        # make system.lt file
+        self.make_systemlt()
+
+        # invoke moltemplate to generate LAMMPS datafile
+
+        self.invoke_moltemplate()
+
+
+        if self.forcefield=='oplsaa':
+            self.getridof_ljcutcoullong()
+
+        # move files to working directory
+        self.mv_files()
+
 
     def create_Folder(self,create_Folder):
         if self.system.MadeFolder==True or create_Folder==True:
@@ -109,57 +177,6 @@ class Moltemplate(object):
 
         return n_monomerAtoms
                     
-    def make_LmpDataFilebyMoltemplate(self):
-        logger.info(' '.join(["\nlmpdata prepared by Moltemplate.\n"]))
-        logger.info(' '.join(["\nNumber of Molecules = ",str(len(self.sequenceSet))]))
-
-        # loop through all polymers and make corresponding polymer lt files
-        for moleii in range(len(self.sequenceSet)):
-            # check degrees of polymerization (DOP) of current polymer
-            if self.DOP>0:
-                if len(self.sequenceSet[moleii])==self.DOP:
-                    logger.warning(' '.join(["\nWarning: At molecule# ",str(moleii)," DOP=",str(len(self.sequenceSet[moleii])),
-                                            " != ",str(self.DOP),"\n"]))
-            else:
-                logger.error(' '.join(["\nWarning: At molecule#",str(moleii+1),",",
-                                        "DOP=",str(len(self.sequenceSet[moleii])),str(self.DOP)]))
-        # check monomer.lt's in the monomer bank
-
-            for indexii in range(len(self.sequenceSet[moleii])):
-                if self.check_monomerbank(self.sequenceSet[moleii][indexii]):
-                    source=Path(self.path_MonomerBank)/self.sequenceSet[moleii][indexii]
-                    self.copy_to_cwd(source)
-                else:
-                    logger.error(' '.join(["\nError: ","At monomer#" +str(indexii+1)+" ("+self.sequenceSet[moleii][indexii]+") ","of molecule#"+str(moleii+1) +": ",
-                                        "\nCan't find corresponding lt file in the monomer bank.\n\n",
-                                        "Automation terminated.\n\n"]))
-                    sys.exit()
-        
-            #make oplsaa.lt (requiring oplsaa_subset.prm)
-            #NOTE: the oplsaa.lt is shared by the current polymer and all its
-            #constituent monomers; to make it more general, this function should
-            #generate an unique oplsaa.lt file for each polymer and its own
-            #monomers. This feature is NOT supported in the current version
-            
-            self.make_oplsaalt(self.sequenceSet[moleii])
-
-            if self.DOP>1:
-                # make poly.lt file
-                self.make_polylt(moleii,self.sequenceName[moleii])
-
-        # make system.lt file
-        self.make_systemlt()
-
-        # invoke moltemplate to generate LAMMPS datafile
-
-        self.invoke_moltemplate()
-
-        self.getridof_ljcutcoullong()
-
-        # move files to working directory
-        self.mv_files()
-
-
     def getridof_ljcutcoullong(self):
         in_=self.path_cwd+"system.in.settings"
         out=self.path_cwd+"tmp.data"
@@ -197,8 +214,6 @@ class Moltemplate(object):
         mv="rm "+in_+";mv "+out+" "+in_
         os.system(mv)
 
-
-
     def mv_files(self):
         datafile="system.data"
         incharge="system.in.charges"
@@ -219,17 +234,27 @@ class Moltemplate(object):
         lmin=0
         lmax=0
 
-
-
     def invoke_moltemplate(self):
         # NOTE: system.lt is in cwd
-        bash="cd "+self.path_cwd+"; "+self.path_moltemplatesrc+"moltemplate.sh ./system.lt"
+        bash='export PATH="$PATH:'+self.path_moltemplate+'"'
+        print(bash)
+        os.system(bash)
+        bash='export PATH="$PATH:'+self.path_moltemplatesrc+'"'
+        print(bash)
+        os.system(bash)
+        #bash="cd "+self.path_cwd+"; "+self.path_moltemplatesrc+"moltemplate.sh ./system.lt"
+        bash="cd "+self.path_cwd+"; "+'export PATH="$PATH:'+self.path_moltemplatesrc+'"'+"&&"+'export PATH="$PATH:'+self.path_moltemplate+'"'+"&&"+"moltemplate.sh ./system.lt"
+        os.system(bash)
+
+        bash="cd "+self.path_cwd+"; "+'export PATH="$PATH:'+self.path_moltemplatesrc+'"'+"&&"+'export PATH="$PATH:'+self.path_moltemplate+'"'+"&&"+"cleanup_moltemplate.sh"
         os.system(bash)
 
     def make_systemlt(self):
         output=self.path_cwd+"/system.lt"
         with open(output, "w") as write_f:
             n_poly=len(self.sequenceSet)
+            if self.add_ion:
+                write_f.write("import \""+str(self.ions[0][0])+".lt\"\n")
             if self.DOP>1:
                 for indexi in range(n_poly):
                     write_f.write("import \"poly_"+str(indexi+1)+".lt\"\n")
@@ -294,6 +319,20 @@ class Moltemplate(object):
                      write_f.write("molecule_"+str(indexi+1)+" = new "+self.merSet[0]+".move("+"{:.4f}".format(offset_x)+","+"{:.4f}".format(valy)+","+"{:.4f}".format(valz)+")"+ "\n")
                 n_pre=n_now
                 counter+=1
+
+            if self.add_ion:
+                source=Path(self.path_MonomerBank)/'Na.lt'
+                self.copy_to_cwd(source)
+                valx=-25
+                valy=-25
+                valz=0
+                number_ions=len(self.ions)
+                for indexi,ionii in enumerate(self.ions):
+                    if valx>50:
+                        valx=0
+                        valy=valy+1
+                    valx=valx+1
+                    write_f.write("ion_"+str(indexi+1)+" = new "+ionii[0]+".move("+"{:.4f}".format(valx)+","+"{:.4f}".format(valy)+","+"{:.4f}".format(valz)+")"+ "\n")
             write_f.write("\n")
 
             hbox=self.moltemplateBoxSize*0.5
@@ -321,8 +360,8 @@ class Moltemplate(object):
         output=self.path_cwd+"/poly_"+str(polyindex+1)+".lt"
 
         with open(output, "w") as write_f:
-            write_f.write("import \"oplsaa.lt\"\n")
-
+            #write_f.write("import \"oplsaa.lt\"\n")
+            write_f.write("import \""+self.forcefield+".lt\"\n")
 
             unique_monomers=list(dict.fromkeys(monomerSet))
             for monomerii in range(len(unique_monomers)):
@@ -331,7 +370,9 @@ class Moltemplate(object):
             write_f.write("\n")
 
             #Define combined molecule (ex.polymer)
-            write_f.write("poly_"+str(polyindex+1)+" inherits OPLSAA {\n\n")
+
+            #write_f.write("poly_"+str(polyindex+1)+" inherits OPLSAA {\n\n")
+            write_f.write("poly_"+str(polyindex+1)+" inherits "+self.forcefield.upper()+" {\n\n")
             write_f.write("    "+ "create_var {$mol}\n\n")
 
             monomerSet_copy=monomerSet
@@ -386,13 +427,16 @@ class Moltemplate(object):
             
 
 
-    def make_oplsaalt(self,monomerSet):
-        self.make_oplsaa_subset(monomerSet)
-        # invoke oplsaa_moltemplate.py to make oplsaa.lt 
-        oplsaa_subset=self.path_cwd+"oplsaa_subset.prm"
-        oplsaa_py=self.path_moltemplatesrc+"oplsaa_moltemplate.py "+oplsaa_subset
-        bash="cd "+self.path_cwd+"; "+oplsaa_py
-        os.system(bash)
+    def make_lt(self,monomerSet):
+        if self.forcefield=='oplsaa':
+            self.make_oplsaa_subset(monomerSet)
+            # invoke oplsaa_moltemplate.py to make oplsaa.lt 
+            oplsaa_subset=self.path_cwd+"oplsaa_subset.prm"
+            oplsaa_py=self.path_moltemplatesrc+"oplsaa_moltemplate.py "+oplsaa_subset
+            bash="cd "+self.path_cwd+"; "+oplsaa_py
+            os.system(bash)
+        elif self.forcefield=='gaff':
+            self.copy_to_cwd(self.path_gafflt)
     
 
     def make_oplsaa_subset(self,monomerSet):
