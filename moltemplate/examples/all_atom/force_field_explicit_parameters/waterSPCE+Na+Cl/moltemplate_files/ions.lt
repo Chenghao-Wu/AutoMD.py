@@ -1,0 +1,64 @@
+# In moltemplate each molecule type is stored in a file whose format mimics the
+# format of a LAMMPS "data" file (with "Atoms" and "Masses" sections).
+# Once defined, these molecules may be copied and moved to build larger systems.
+
+
+# We define two molecule classes to represent Na+ and Cl- ions, respectively.
+# They both contain only one atom.
+
+
+
+NaIon {
+
+  # AtomID  MolID  AtomType  charge   X       Y         Z
+  write("Data Atoms") {
+    $atom:Na $mol @atom:Na    1.0    0.00000  0.00000   0.000000
+  }
+
+  write_once("Data Masses") {
+    @atom:Na 22.9898
+  }
+
+  # The "In Settings" section stores force-field parameters for this molecule
+  write_once("In Settings") {
+    pair_coeff @atom:Na @atom:Na  0.3526418 2.1595384928
+  }
+  # (explanation:  http://lammps.sandia.gov/doc/pair_charmm.html)
+
+} # NaIon
+
+
+
+
+ClIon {
+
+  # AtomID  MolID  AtomType  charge   X       Y         Z
+  write("Data Atoms") {
+    $atom:Cl $mol  @atom:Cl  -1.0  0.00000  0.00000   0.000000
+  }
+
+  write_once("Data Masses") {
+    @atom:Cl 35.453
+  }
+
+  # The "In Settings" section stores force-field parameters for this molecule
+  write_once("In Settings") {
+    pair_coeff @atom:Cl @atom:Cl   0.0127850  4.8304528498
+  }
+  # (explanation:  http://lammps.sandia.gov/doc/pair_charmm.html)
+
+} # ClIon
+
+
+
+
+
+
+# Note: Monovalent ion parameters for Ewald and SPC/E water
+#       are from Joung & Cheatham JPCB (2008)   (Table 5)
+#       (The widths of the ions, expressed in terms of Rmin/2, are:
+#        1.212 and 2.711, for Na+ and Cl-, respectively)
+# Note: They use  U(r) =  ε*((σ/r)^12 - 2*(σ/r)^6)
+#            not  U(r) = 4ε*((σ/r)^12 - (σ/r)^6)
+#       ...but this should not effect the ε (epsilon) value.
+#       (LAMMPS uses later convention, in which case Rmin/2 = σ/2^(5/6))

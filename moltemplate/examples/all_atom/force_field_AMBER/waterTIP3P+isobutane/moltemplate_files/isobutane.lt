@@ -1,0 +1,61 @@
+
+import "gaff.lt"
+
+# The "gaff.lt" file is usually located in "force_fields" subdirectory
+# of the moltemplate distribution.
+# It contains definitions of the atoms "c3", "h1", as well as the bonded
+# and non-bonded interactions between them (and many other atoms).
+#
+# WARNING: CHARGES ARE INCORRECT
+# For this example, I manually looked up the charge of each atom using the 
+# OPLSAA parameters from the "oplsaa.prm" file distributed with TINKER:
+# http://dasher.wustl.edu/tinker/distribution/params/oplsaa.prm
+#  ----->  DO NOT DO THIS!  <-----
+# Normally simulations in AMBER are typically assigned charges using the
+# "HF/6-31G* RESP2" or "AM1-BCC3" methods using AmberTools.
+# Using the OPLSAA charges instead will NOT reproduce the behavior of AMBER.
+# For more details how to calculate charges correctly, see:
+# https://github.com/jewettaij/moltemplate/blob/master/examples/all_atom/force_field_AMBER/README.md
+
+
+Isobutane inherits GAFF {
+
+  # atomID   molID  atomTyle   charge     X       Y        Z
+  write('Data Atoms') {
+    $atom:c0 $mol:. @atom:c3   -0.0600  -0.001  -0.001  -0.439
+    $atom:c1 $mol:. @atom:c3   -0.1800  -1.257  -0.726   0.078
+    $atom:c2 $mol:. @atom:c3   -0.1800   1.258  -0.726   0.072
+    $atom:c3 $mol:. @atom:c3   -0.1800  -0.001   1.453   0.069
+    $atom:h0 $mol:. @atom:hc    0.0600  -0.003  -0.004  -1.439
+    $atom:h11 $mol:. @atom:hc   0.0600  -2.075  -0.255  -0.254
+    $atom:h12 $mol:. @atom:hc   0.0600  -1.256  -0.724   1.078
+    $atom:h13 $mol:. @atom:hc   0.0600  -1.259  -1.669  -0.253
+    $atom:h21 $mol:. @atom:hc   0.0600   2.074  -0.255  -0.264
+    $atom:h22 $mol:. @atom:hc   0.0600   1.258  -1.669  -0.259
+    $atom:h23 $mol:. @atom:hc   0.0600   1.261  -0.724   1.072
+    $atom:h31 $mol:. @atom:hc   0.0600  -0.817   1.923  -0.263
+    $atom:h32 $mol:. @atom:hc   0.0600   0.816   1.923  -0.268
+    $atom:h33 $mol:. @atom:hc   0.0600   0.003   1.456   1.070
+  }
+
+  #  The "." in "$mol:." refers to this molecule object's molecule ID
+  #  (It means we do not expect this molecule to be a group or a subunit
+  #   of a larger molecule.  Otherwise we would use "$mol:..." instead.)
+
+  write('Data Bond List') {
+    $bond:c01 $atom:c0 $atom:c1
+    $bond:c02 $atom:c0 $atom:c2
+    $bond:c03 $atom:c0 $atom:c3
+    $bond:c0h $atom:c0 $atom:h0
+    $bond:c1h1 $atom:c1 $atom:h11
+    $bond:c1h2 $atom:c1 $atom:h12
+    $bond:c1h3 $atom:c1 $atom:h13
+    $bond:c2h1 $atom:c2 $atom:h21
+    $bond:c2h2 $atom:c2 $atom:h22
+    $bond:c2h3 $atom:c2 $atom:h23
+    $bond:c3h1 $atom:c3 $atom:h31
+    $bond:c3h2 $atom:c3 $atom:h32
+    $bond:c3h3 $atom:c3 $atom:h33
+  }
+
+} # Isobutane

@@ -1,0 +1,153 @@
+
+DNAForceField {
+
+  write_once("Data Masses") {
+    @atom:C1       506.6059
+    @atom:C2       506.6059
+    @atom:R        506.6059
+  }
+
+  # For convenience all masses are chosen to insure that a timestep (Δt)
+  # of 1.0 is numerically stable.
+  # Note: All masses are in units of  Δt^2*(energy_units)/(distance_units^2)
+  #       All energy parameters are expressed in kcal/mol. Distances are in nm.
+
+  # Ubond(r) = k*(r-r0)^2   
+  # Define properties of the backbone and sidechain bonds
+
+  write_once("In Settings") {
+    bond_coeff     @bond:Backbone   harmonic   25.0   6.972
+    bond_coeff     @bond:Sidechain  harmonic   25.0   6.972
+  }
+
+  #  Rules for determining 3 and 4-body bonded interactions by type
+
+  #  --- 3-body interactions: ---
+
+  # 3-body interactions in this example are listed by atomType and bondType
+  # The atomIDs involved are determined automatically.  The forumula used is:
+  #
+  # Uangle(theta) = K*(theta-theta0)^2   
+  #     (k in energy/rad^2, theta0 in degrees)
+  #
+  # The corresponding command is:
+  #
+  #  angle_coeff angleType  anglestylename  K  theta0
+
+  write_once("In Settings") {
+        # The next two angle constraints are unrelated to persistence length
+    angle_coeff @angle:CCCstiff harmonic  200.0 180.0  # = 180-alpha
+    angle_coeff @angle:RCC      harmonic  200.0  90.0  # = gamma
+        # Low-resolution polymers must use weaker angular springs to compensate
+        # for the large spacing between beads in the model.  However weak
+        # angular springs increase the chance of angles approaching 180 degrees,
+        # which will will cause numerical instability in the dihedral force
+        # calculation.  To prevent this, we use nonlinear angular springs
+        # whose parameters are stored in a table "table_angle.dat".
+        # See the "STEP_2_generate_LAMMPS_files.sh" file
+        # for an explanation of theses forces.
+    angle_coeff @angle:CCCbendy table   table_angle.dat  CCC
+  }
+
+  # angle-type        atomType1 atomType2 atomType3    BondType1    BondType2
+
+  write_once("Data Angles By Type") {
+    @angle:CCCstiff    @atom:C1* @atom:C2  @atom:C1* @bond:Backbone @bond:Backbone
+    @angle:CCCbendy    @atom:C2  @atom:C1* @atom:C2  @bond:Backbone @bond:Backbone
+    @angle:RCC         @atom:R   @atom:C2  @atom:C1* @bond:Sidechain @bond:Backbone
+  }
+
+  #  --- 4-body interactions: ---
+
+  write_once("In Settings") {
+    # Again, low-resolution polymer models must use weak angular springs to
+    # compensate for the large distance between particles in the model.
+    # To make sure that the DNA never unwinds, we use nonlinear torsion
+    # (dihedral) forces which are weak at small angles, but strong as the
+    # angles approach 180 degrees.  Those parameters are stored in a table
+    # "table_dihedral.dat".  See the "STEP_2_generate_LAMMPS_files.sh" file
+    # for an explanation of theses forces.
+
+    dihedral_coeff @dihedral:Backbone table table_dihedral.dat RCCR
+  }
+
+
+  # dihedral-type      atomType1 atomType2 atomType3 atomType4   bondType1  BondType2  BondType3
+
+  write_once("Data Dihedrals By Type") {
+    @dihedral:Backbone   @atom:R  @atom:C2  @atom:C1  @atom:R  @bond:Sidechain @bond:Backbone @bond:Sidechain
+  }
+
+
+
+  write_once("In Settings") {
+
+    # To make the chain as smooth as possible (without increasing the
+    # number of particles), use a Gaussian repulsive potential
+    # U(r)=-A*exp(-r^2/2σ^2)whose width (σ) equals half the separation between
+    # particles on the backbone of the polymer chain.  LAMMPS uses this formula:
+    #   U(r) = -A*exp(-B*r^2),   where B=1/(2σ^2)
+    #   If σ = (1/2) space between backbone particles =
+    #        = (1/2)*(1/2)*42bp*(0.332nm/bp)
+    #        = 3.486
+    #  --> B = 0.041144827
+    # The height of the Gaussian (A) is proportional to the energetic barrier
+    # for 2 chains crossing. (Taking into account the multiple particles that
+    # make up the chain, the energy barrier for two perpendicular chains to
+    # cross each other is approximately 1.58*A for this choice of σ.)
+    # To make sure the DNA never passes through itself, I chose to use:
+    #   A = -32.0  (kcal/mol)
+    # WARNING Such a large value of A may effectively cause the DNA to be
+    # too wide (about 10nm at 300K).  This could reduce its ability to form
+    # supercoils and also cause problems at high concentrations.
+    #
+    #            AtomI   AtomJ   pair_style    A      B         r_cutoff
+
+    pair_coeff @atom:C* @atom:C*   gauss    -32.0  0.041144827  10.458
+
+    # (Note: "C*" is equivalent to both C1 and C2, in this example.
+    #  For details, see https://lammps.sandia.gov/doc/pair_gauss.html)
+
+    # Turn off interactions between R and all other particles (*)
+    pair_coeff @atom:R  @atom:*    gauss     -0.0  0.041144827  10.458
+
+  }
+
+  write_once("In Settings") {
+    # Define the group of particles consisting of DNA
+    group gDNA type @atom:C1 @atom:C2 @atom:R
+
+    # To speed up the simulation, disable non-bonded interactions between the
+    # "phantom" particles which were only added to provide torsion angle forces)
+    group gPhantom type @atom:R
+    neigh_modify exclude group gPhantom all check no
+  }
+
+  # At some point we need to specify which force-field styles we want to use.
+  # You can override these settings later.
+
+  write_once("In Init") {
+    # Default styles for polymers built using "monomer.lt"
+
+    units           lj
+    atom_style      full
+
+    bond_style      hybrid harmonic
+    angle_style     hybrid harmonic table linear 181
+    #dihedral_style  hybrid charmm
+    dihedral_style  hybrid table linear 360
+
+    pair_style      hybrid gauss 10.458
+    # Other popular pair_style choices for coarse grained DNA:
+    #pair_style      hybrid table linear 64
+    #pair_style      hybrid yukawa 1.0 7.001 # Debye-length ~1.0nm
+
+    special_bonds   lj 0.0 0.0 0.0
+  }
+
+} # DNAforcefield
+
+
+
+
+

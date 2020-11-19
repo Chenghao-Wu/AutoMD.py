@@ -1,0 +1,58 @@
+# This file defines a cylindrical wall whose diameter is approximately
+# consistent with the width of a Caulobacter crescentus cell.
+#
+# NOTE: The length of the cylinder we are using here is extremely long.
+#       (In LAMMPS, there is no way to make it infinite.)  However this
+#       does not matter because we are using periodic boundary conditions
+#       in this simulation. Only the length of the simulation box matters.
+#       During the simulation, the box length will be adjusted until it
+#       equals the length of a typical Caulobacter crescentus cell.
+
+
+################################################
+# Define "rCyl", a cylindrical region in space.
+#
+#                        cylinder_center radius
+#                       x,y,z?   x0    y0    rc0     xlo      xhi       inside
+#                         |      |     |      |       |        |        surface
+#                        \|/    \|/   \|/    \|/     \|/      \|/          |
+#                         V      V     V      V       V        V           V
+region  rCyl     cylinder x     0.0   0.0   330.0 -350000.0 350000.0  side in
+
+# This sets the parameter "rc0" equal to 330.0.
+# The rc0 parameter is not the radius of the cylinder.  It is slightly larger to
+# make room for a thin region of space where the force field will push inward.
+# Setting rc0=330.0 means we assume no particle will ever travel further than
+# 330.0 from the central axis of the cylinder.
+# Particles will experience an inward pushing force earlier than this.
+# The exact value of the rc0 parameter does not matter very much as long as
+# it is big enough to enclose the cylinder and some additional wiggle room.
+# For details, see: http://lammps.sandia.gov/doc/region.html
+
+
+
+
+
+
+# Now apply an inward force applied to every particle which lies outside
+# a spherical region (of radius rc0-rc)
+# The energy of each particle (due to that force) is:
+#
+# Uexternal(r) = k*(rsurf-rc)^2 
+#       where "rsurf" = the distance from the particle to the surface = rc0 - r
+#              = k*((rc0-rc) - r)^2
+#                 
+#                                              k   ignore  rc
+#                                              |     |     |
+#                                             \|/   \|/   \|/
+#                                              V     V     V
+
+fix fxWall all wall/region rCyl harmonic      1.0   0.0   10.0
+
+#     Note that rc0-rc = 320.0
+#               rc0-rc = the "inner" sphere radius (where the force begins)
+
+# For (a confusing) explanation of these commands go here:
+# http://lammps.sandia.gov/doc/fix_wall_region.html
+# http://lammps.sandia.gov/doc/region.html
+# (I figured things out by reading the LAMMPS source code, fix_wall_region.cpp)

@@ -1,0 +1,43 @@
+
+import "gaff.lt"
+
+# The "gaff.lt" file is usually located in "force_fields" subdirectory
+# of the moltemplate distribution.
+# It contains definitions of the atoms "c2", "hc", as well as the bonded
+# and non-bonded interactions between them (and many other atoms).
+#
+# WARNING: CHARGES ARE INCORRECT
+# For this example, I manually looked up the charge of each atom using the 
+# OPLSAA parameters from the "oplsaa.prm" file distributed with TINKER:
+# http://dasher.wustl.edu/tinker/distribution/params/oplsaa.prm
+#  ----->  DO NOT DO THIS!  <-----
+# Normally simulations in AMBER are assigned charges using the
+# "HF/6-31G* RESP2" or "AM1-BCC3" methods using AmberTools.
+# Using the OPLSAA charges instead will NOT reproduce the behavior of AMBER.
+# For more details how to calculate charges correctly, see:
+# https://github.com/jewettaij/moltemplate/blob/master/examples/all_atom/force_field_AMBER/README.md
+
+
+Ethylene inherits GAFF {
+
+  # atom-id  mol-id  atom-type charge      X         Y        Z
+
+  write('Data Atoms') {
+    $atom:c1  $mol @atom:c2  -0.23  -0.6695    0.000000  0.000000
+    $atom:c2  $mol @atom:c2  -0.23   0.6695    0.000000  0.000000
+    $atom:h11 $mol @atom:hc  0.115  -1.234217 -0.854458  0.000000
+    $atom:h12 $mol @atom:hc  0.115  -1.234217  0.854458  0.000000
+    $atom:h21 $mol @atom:hc  0.115   1.234217 -0.854458  0.000000
+    $atom:h22 $mol @atom:hc  0.115   1.234217  0.854458  0.000000
+  }
+
+  write('Data Bond List') {
+    $bond:c12  $atom:c1 $atom:c2
+    $bond:c1h1 $atom:c1 $atom:h11
+    $bond:c1h2 $atom:c1 $atom:h12
+    $bond:c2h1 $atom:c2 $atom:h21
+    $bond:c2h2 $atom:c2 $atom:h22
+  }
+
+} # Ethylene
+
