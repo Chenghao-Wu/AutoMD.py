@@ -1,5 +1,5 @@
-# Jarvis
-> An asistant for automating your molecular dynamics simulations: "Jarvis", initially created by Iron Man
+# AutoMD.py
+> An asistant for automating your molecular dynamics simulations on HPC
 
 
 ## Installation
@@ -41,7 +41,7 @@ Contributions are what make the open source community such an amazing place to b
 
 Your Name - Bruce Wu - w415146142@gamil.com
 
-Project Link: [https://github.com/Chenghao-Wu/Jarvis](https://github.com/Chenghao-Wu/Jarvis)
+Project Link: [https://github.com/Chenghao-Wu/AutoMD.py](https://github.com/Chenghao-Wu/AutoMD.py)
 
 <!-- ACKNOWLEDGEMENTS -->
 ## Acknowledgements
